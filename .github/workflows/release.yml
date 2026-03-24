@@ -1,0 +1,154 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  CONFIGURATION: Release
+  DEFAULT_DOTNET_VERSION: 10.0.x
+  NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
+
+jobs:
+  build-release:
+    name: Build and publish release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Detect .NET SDK source
+        id: dotnet
+        shell: bash
+        run: |
+          if [ -f "./global.json" ]; then
+            echo "use_global_json=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "use_global_json=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup .NET from global.json
+        if: steps.dotnet.outputs.use_global_json == 'true'
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: ./global.json
+          cache: false
+
+      - name: Setup .NET default SDK
+        if: steps.dotnet.outputs.use_global_json != 'true'
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: ${{ env.DEFAULT_DOTNET_VERSION }}
+          cache: false
+
+      - name: Find solution file
+        id: solution
+        shell: bash
+        run: |
+          SOLUTION_FILE="$(find . -maxdepth 4 \( -name '*.slnx' -o -name '*.sln' \) | sort | head -n 1)"
+          if [ -z "$SOLUTION_FILE" ]; then
+            echo "No solution file (*.slnx or *.sln) found."
+            exit 1
+          fi
+          echo "path=$SOLUTION_FILE" >> "$GITHUB_OUTPUT"
+          echo "Using solution: $SOLUTION_FILE"
+
+      - name: Find API project
+        id: release_project
+        shell: bash
+        run: |
+          PROJECT_FILE="$(find . -maxdepth 5 -path '*/OpcUaEmulator.Api/OpcUaEmulator.Api.csproj' | sort | head -n 1)"
+          if [ -z "$PROJECT_FILE" ]; then
+            echo "OpcUaEmulator.Api.csproj not found."
+            exit 1
+          fi
+          echo "path=$PROJECT_FILE" >> "$GITHUB_OUTPUT"
+          echo "Using release project: $PROJECT_FILE"
+
+      - name: Prepare folders and clear NuGet caches
+        shell: bash
+        run: |
+          mkdir -p "$NUGET_PACKAGES" ./artifacts/test-results
+          dotnet nuget locals all --clear
+
+      - name: Restore
+        shell: bash
+        run: |
+          dotnet restore "${{ steps.solution.outputs.path }}" \
+            --packages "$NUGET_PACKAGES" \
+            --force \
+            --no-http-cache
+
+      - name: Build
+        shell: bash
+        run: |
+          dotnet build "${{ steps.solution.outputs.path }}" \
+            --configuration "$CONFIGURATION" \
+            --no-restore \
+            --packages "$NUGET_PACKAGES" \
+            /p:ContinuousIntegrationBuild=true
+
+      - name: Test
+        shell: bash
+        run: |
+          dotnet test "${{ steps.solution.outputs.path }}" \
+            --configuration "$CONFIGURATION" \
+            --no-build \
+            --packages "$NUGET_PACKAGES" \
+            --logger "trx;LogFilePrefix=release-test-results" \
+            --results-directory ./artifacts/test-results
+
+      - name: Publish application
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME:-manual}"
+          PACKAGE_ROOT="$RUNNER_TEMP/OpcUaEmulator-$VERSION"
+          mkdir -p "$PACKAGE_ROOT"
+          dotnet publish "${{ steps.release_project.outputs.path }}" \
+            --configuration "$CONFIGURATION" \
+            --no-build \
+            --packages "$NUGET_PACKAGES" \
+            --output "$PACKAGE_ROOT/app" \
+            /p:ContinuousIntegrationBuild=true
+          if [ -f README.md ]; then cp README.md "$PACKAGE_ROOT/"; fi
+          if [ -f LICENSE ]; then cp LICENSE "$PACKAGE_ROOT/"; fi
+          if [ -f LICENSE.md ]; then cp LICENSE.md "$PACKAGE_ROOT/"; fi
+          cd "$RUNNER_TEMP"
+          zip -r "$GITHUB_WORKSPACE/OpcUaEmulator-$VERSION.zip" "OpcUaEmulator-$VERSION"
+          sha256sum "$GITHUB_WORKSPACE/OpcUaEmulator-$VERSION.zip" > "$GITHUB_WORKSPACE/OpcUaEmulator-$VERSION.zip.sha256"
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ github.ref_name || github.run_number }}
+          path: |
+            OpcUaEmulator-*.zip
+            OpcUaEmulator-*.zip.sha256
+            artifacts/test-results/**
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Create or update GitHub release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          TAG_NAME="${GITHUB_REF_NAME}"
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            gh release upload "$TAG_NAME" OpcUaEmulator-*.zip OpcUaEmulator-*.zip.sha256 --clobber
+          else
+            gh release create "$TAG_NAME" OpcUaEmulator-*.zip OpcUaEmulator-*.zip.sha256 --generate-notes --verify-tag
+          fi

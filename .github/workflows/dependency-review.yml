@@ -1,0 +1,47 @@
+name: Dependency Review
+
+on:
+  pull_request:
+    branches: [ "master" ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dependency-review-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dependency-review:
+    name: Dependency review
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Run dependency review
+        id: dependency_review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: moderate
+          fail-on-scopes: runtime
+          license-check: false
+
+      - name: Persist dependency review output
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p artifacts/dependency-review
+          printf '%s' '${{ steps.dependency_review.outputs.dependency-changes }}' > artifacts/dependency-review/dependency-changes.json
+          printf '%s' '${{ steps.dependency_review.outputs.vulnerable-changes }}' > artifacts/dependency-review/vulnerable-changes.json
+          printf '%s' '${{ steps.dependency_review.outputs.comment-content }}' > artifacts/dependency-review/summary.md
+
+      - name: Upload dependency review artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-review-${{ github.run_number }}
+          path: artifacts/dependency-review/**
+          if-no-files-found: warn
+          retention-days: 30

@@ -6,7 +6,7 @@ namespace OpcUaEmulator.Integration.Tests;
 public sealed class ProjectStructureTests
 {
     [Fact]
-    public void Solution_Should_Have_Expected_Project_References()
+    public void SolutionShouldHaveExpectedProjectReferences()
     {
         var root = FindRepositoryRoot();
 
@@ -77,7 +77,7 @@ public sealed class ProjectStructureTests
     }
 
     [Fact]
-    public void Solution_Should_Contain_All_Expected_Project_Folders()
+    public void SolutionShouldContainAllExpectedProjectFolders()
     {
         var root = FindRepositoryRoot();
 
@@ -109,7 +109,7 @@ public sealed class ProjectStructureTests
             .Where(x => x.Name.LocalName == "ProjectReference")
             .Select(x => x.Attribute("Include")?.Value)
             .Where(x => !string.IsNullOrWhiteSpace(x))
-            .Select(GetProjectNameFromReference)
+            .Select(x => GetProjectNameFromReference(x!))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray()!;
     }

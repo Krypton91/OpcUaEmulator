@@ -1,0 +1,154 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [ "master" ]
+  push:
+    branches: [ "master" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: write
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  CONFIGURATION: Release
+  ARTIFACTS_DIR: artifacts
+  DEFAULT_DOTNET_VERSION: 10.0.x
+  NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
+
+jobs:
+  validate:
+    name: Build, test and quality checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Detect .NET SDK source
+        id: dotnet
+        shell: bash
+        run: |
+          if [ -f "./global.json" ]; then
+            echo "use_global_json=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "use_global_json=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup .NET from global.json
+        if: steps.dotnet.outputs.use_global_json == 'true'
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: ./global.json
+          cache: false
+
+      - name: Setup .NET default SDK
+        if: steps.dotnet.outputs.use_global_json != 'true'
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: ${{ env.DEFAULT_DOTNET_VERSION }}
+          cache: false
+
+      - name: Find solution file
+        id: solution
+        shell: bash
+        run: |
+          SOLUTION_FILE="$(find . -maxdepth 4 \( -name '*.slnx' -o -name '*.sln' \) | sort | head -n 1)"
+          if [ -z "$SOLUTION_FILE" ]; then
+            echo "No solution file (*.slnx or *.sln) found."
+            exit 1
+          fi
+          echo "path=$SOLUTION_FILE" >> "$GITHUB_OUTPUT"
+          echo "Using solution: $SOLUTION_FILE"
+
+      - name: Prepare artifact folders
+        shell: bash
+        run: |
+          mkdir -p "$ARTIFACTS_DIR/test-results" "$ARTIFACTS_DIR/code-quality" "$ARTIFACTS_DIR/logs"
+          mkdir -p "$NUGET_PACKAGES"
+
+      - name: Clear NuGet caches
+        shell: bash
+        run: |
+          dotnet nuget locals all --clear
+
+      - name: Restore
+        shell: bash
+        run: |
+          dotnet restore "${{ steps.solution.outputs.path }}" \
+            --packages "$NUGET_PACKAGES" \
+            --force \
+            --no-http-cache \
+            2>&1 | tee "$ARTIFACTS_DIR/logs/restore.log"
+
+      - name: Validate formatting
+        shell: bash
+        run: |
+          dotnet format "${{ steps.solution.outputs.path }}" \
+            --verify-no-changes \
+            --severity error \
+            --no-restore \
+            --verbosity diagnostic \
+            2>&1 | tee "$ARTIFACTS_DIR/code-quality/dotnet-format.log"
+
+      - name: Build with analyzers and warnings as errors
+        shell: bash
+        run: |
+          dotnet build "${{ steps.solution.outputs.path }}" \
+            --configuration "$CONFIGURATION" \
+            --no-restore \
+            -warnaserror \
+            /p:TreatWarningsAsErrors=true \
+            /p:ContinuousIntegrationBuild=true \
+            /p:EnforceCodeStyleInBuild=true \
+            2>&1 | tee "$ARTIFACTS_DIR/code-quality/dotnet-build.log"
+
+      - name: Run tests
+        shell: bash
+        run: |
+          dotnet test "${{ steps.solution.outputs.path }}" \
+            --configuration "$CONFIGURATION" \
+            --no-build \
+            --logger "trx;LogFilePrefix=test-results" \
+            --results-directory "$ARTIFACTS_DIR/test-results" \
+            2>&1 | tee "$ARTIFACTS_DIR/test-results/dotnet-test.log"
+
+      - name: Publish test results to Checks
+        if: always() && hashFiles('artifacts/test-results/**/*.trx') != ''
+        continue-on-error: true
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          files: artifacts/test-results/**/*.trx
+          check_name: Test Results
+          comment_mode: off
+          fail_on: test failures
+
+      - name: Write job summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## CI output"
+            echo
+            echo "- Solution: \`${{ steps.solution.outputs.path }}\`"
+            echo "- Test results: \`$ARTIFACTS_DIR/test-results\`"
+            echo "- Code quality logs: \`$ARTIFACTS_DIR/code-quality\`"
+            echo "- Restore logs: \`$ARTIFACTS_DIR/logs\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload CI artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-results-${{ github.run_number }}
+          path: |
+            artifacts/**
+          if-no-files-found: warn
+          retention-days: 30
