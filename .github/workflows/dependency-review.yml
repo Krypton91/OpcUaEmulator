@@ -18,7 +18,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Run dependency review
         id: dependency_review
@@ -31,15 +31,19 @@ jobs:
       - name: Persist dependency review output
         if: always()
         shell: bash
+        env:
+          DEPENDENCY_CHANGES: ${{ steps.dependency_review.outputs.dependency-changes }}
+          VULNERABLE_CHANGES: ${{ steps.dependency_review.outputs.vulnerable-changes }}
+          COMMENT_CONTENT: ${{ steps.dependency_review.outputs.comment-content }}
         run: |
           mkdir -p artifacts/dependency-review
-          printf '%s' '${{ steps.dependency_review.outputs.dependency-changes }}' > artifacts/dependency-review/dependency-changes.json
-          printf '%s' '${{ steps.dependency_review.outputs.vulnerable-changes }}' > artifacts/dependency-review/vulnerable-changes.json
-          printf '%s' '${{ steps.dependency_review.outputs.comment-content }}' > artifacts/dependency-review/summary.md
+          printf '%s' "$DEPENDENCY_CHANGES" > artifacts/dependency-review/dependency-changes.json
+          printf '%s' "$VULNERABLE_CHANGES" > artifacts/dependency-review/vulnerable-changes.json
+          printf '%s' "$COMMENT_CONTENT" > artifacts/dependency-review/summary.md
 
       - name: Upload dependency review artifacts
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: dependency-review-${{ github.run_number }}
           path: artifacts/dependency-review/**

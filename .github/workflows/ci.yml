@@ -112,6 +112,9 @@ jobs:
 
       - name: Run tests
         shell: bash
+        env:
+          ASPNETCORE_ENVIRONMENT: Development
+          DOTNET_ENVIRONMENT: Development
         run: |
           dotnet test "${{ steps.solution.outputs.path }}" \
             --configuration "$CONFIGURATION" \
