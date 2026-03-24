@@ -104,7 +104,6 @@ jobs:
           dotnet build "${{ steps.solution.outputs.path }}" \
             --configuration "$CONFIGURATION" \
             --no-restore \
-            --packages "$NUGET_PACKAGES" \
             -warnaserror \
             /p:TreatWarningsAsErrors=true \
             /p:ContinuousIntegrationBuild=true \
@@ -117,7 +116,6 @@ jobs:
           dotnet test "${{ steps.solution.outputs.path }}" \
             --configuration "$CONFIGURATION" \
             --no-build \
-            --packages "$NUGET_PACKAGES" \
             --logger "trx;LogFilePrefix=test-results" \
             --results-directory "$ARTIFACTS_DIR/test-results" \
             2>&1 | tee "$ARTIFACTS_DIR/test-results/dotnet-test.log"
