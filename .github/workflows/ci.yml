@@ -21,6 +21,7 @@ env:
   CONFIGURATION: Release
   ARTIFACTS_DIR: artifacts
   DEFAULT_DOTNET_VERSION: 10.0.x
+  NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
 
 jobs:
   validate:
@@ -46,31 +47,20 @@ jobs:
         uses: actions/setup-dotnet@v5
         with:
           global-json-file: ./global.json
-          cache: true
-          cache-dependency-path: |
-            **/packages.lock.json
-            **/*.csproj
-            **/*.props
-            **/*.targets
-            global.json
+          cache: false
 
       - name: Setup .NET default SDK
         if: steps.dotnet.outputs.use_global_json != 'true'
         uses: actions/setup-dotnet@v5
         with:
           dotnet-version: ${{ env.DEFAULT_DOTNET_VERSION }}
-          cache: true
-          cache-dependency-path: |
-            **/packages.lock.json
-            **/*.csproj
-            **/*.props
-            **/*.targets
+          cache: false
 
       - name: Find solution file
         id: solution
         shell: bash
         run: |
-          SOLUTION_FILE="$(find . -maxdepth 2 \( -name '*.slnx' -o -name '*.sln' \) | sort | head -n 1)"
+          SOLUTION_FILE="$(find . -maxdepth 4 \( -name '*.slnx' -o -name '*.sln' \) | sort | head -n 1)"
           if [ -z "$SOLUTION_FILE" ]; then
             echo "No solution file (*.slnx or *.sln) found."
             exit 1
@@ -82,11 +72,21 @@ jobs:
         shell: bash
         run: |
           mkdir -p "$ARTIFACTS_DIR/test-results" "$ARTIFACTS_DIR/code-quality" "$ARTIFACTS_DIR/logs"
+          mkdir -p "$NUGET_PACKAGES"
+
+      - name: Clear NuGet caches
+        shell: bash
+        run: |
+          dotnet nuget locals all --clear
 
       - name: Restore
         shell: bash
         run: |
-          dotnet restore "${{ steps.solution.outputs.path }}" 2>&1 | tee "$ARTIFACTS_DIR/logs/restore.log"
+          dotnet restore "${{ steps.solution.outputs.path }}" \
+            --packages "$NUGET_PACKAGES" \
+            --force \
+            --no-http-cache \
+            2>&1 | tee "$ARTIFACTS_DIR/logs/restore.log"
 
       - name: Validate formatting
         shell: bash
@@ -104,6 +104,7 @@ jobs:
           dotnet build "${{ steps.solution.outputs.path }}" \
             --configuration "$CONFIGURATION" \
             --no-restore \
+            --packages "$NUGET_PACKAGES" \
             -warnaserror \
             /p:TreatWarningsAsErrors=true \
             /p:ContinuousIntegrationBuild=true \
@@ -116,6 +117,7 @@ jobs:
           dotnet test "${{ steps.solution.outputs.path }}" \
             --configuration "$CONFIGURATION" \
             --no-build \
+            --packages "$NUGET_PACKAGES" \
             --logger "trx;LogFilePrefix=test-results" \
             --results-directory "$ARTIFACTS_DIR/test-results" \
             2>&1 | tee "$ARTIFACTS_DIR/test-results/dotnet-test.log"
@@ -137,10 +139,10 @@ jobs:
           {
             echo "## CI output"
             echo
-            echo "- Solution: \\`${{ steps.solution.outputs.path }}\\`"
-            echo "- Test results: \\`$ARTIFACTS_DIR/test-results\\`"
-            echo "- Code quality logs: \\`$ARTIFACTS_DIR/code-quality\\`"
-            echo "- Restore logs: \\`$ARTIFACTS_DIR/logs\\`"
+            echo "- Solution: \`${{ steps.solution.outputs.path }}\`"
+            echo "- Test results: \`$ARTIFACTS_DIR/test-results\`"
+            echo "- Code quality logs: \`$ARTIFACTS_DIR/code-quality\`"
+            echo "- Restore logs: \`$ARTIFACTS_DIR/logs\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload CI artifacts

@@ -17,8 +17,8 @@ env:
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   CONFIGURATION: Release
-  DEFAULT_DOTNET_VERSION: 9.0.x
-  RELEASE_PROJECT: ./OpcUaEmulator.Api/OpcUaEmulator.Api.csproj
+  DEFAULT_DOTNET_VERSION: 10.0.x
+  NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
 
 jobs:
   build-release:
@@ -44,31 +44,20 @@ jobs:
         uses: actions/setup-dotnet@v5
         with:
           global-json-file: ./global.json
-          cache: true
-          cache-dependency-path: |
-            **/packages.lock.json
-            **/*.csproj
-            **/*.props
-            **/*.targets
-            global.json
+          cache: false
 
       - name: Setup .NET default SDK
         if: steps.dotnet.outputs.use_global_json != 'true'
         uses: actions/setup-dotnet@v5
         with:
           dotnet-version: ${{ env.DEFAULT_DOTNET_VERSION }}
-          cache: true
-          cache-dependency-path: |
-            **/packages.lock.json
-            **/*.csproj
-            **/*.props
-            **/*.targets
+          cache: false
 
       - name: Find solution file
         id: solution
         shell: bash
         run: |
-          SOLUTION_FILE="$(find . -maxdepth 2 \( -name '*.slnx' -o -name '*.sln' \) | sort | head -n 1)"
+          SOLUTION_FILE="$(find . -maxdepth 4 \( -name '*.slnx' -o -name '*.sln' \) | sort | head -n 1)"
           if [ -z "$SOLUTION_FILE" ]; then
             echo "No solution file (*.slnx or *.sln) found."
             exit 1
@@ -76,9 +65,31 @@ jobs:
           echo "path=$SOLUTION_FILE" >> "$GITHUB_OUTPUT"
           echo "Using solution: $SOLUTION_FILE"
 
+      - name: Find API project
+        id: release_project
+        shell: bash
+        run: |
+          PROJECT_FILE="$(find . -maxdepth 5 -path '*/OpcUaEmulator.Api/OpcUaEmulator.Api.csproj' | sort | head -n 1)"
+          if [ -z "$PROJECT_FILE" ]; then
+            echo "OpcUaEmulator.Api.csproj not found."
+            exit 1
+          fi
+          echo "path=$PROJECT_FILE" >> "$GITHUB_OUTPUT"
+          echo "Using release project: $PROJECT_FILE"
+
+      - name: Prepare folders and clear NuGet caches
+        shell: bash
+        run: |
+          mkdir -p "$NUGET_PACKAGES" ./artifacts/test-results
+          dotnet nuget locals all --clear
+
       - name: Restore
         shell: bash
-        run: dotnet restore "${{ steps.solution.outputs.path }}"
+        run: |
+          dotnet restore "${{ steps.solution.outputs.path }}" \
+            --packages "$NUGET_PACKAGES" \
+            --force \
+            --no-http-cache
 
       - name: Build
         shell: bash
@@ -86,6 +97,7 @@ jobs:
           dotnet build "${{ steps.solution.outputs.path }}" \
             --configuration "$CONFIGURATION" \
             --no-restore \
+            --packages "$NUGET_PACKAGES" \
             /p:ContinuousIntegrationBuild=true
 
       - name: Test
@@ -94,6 +106,7 @@ jobs:
           dotnet test "${{ steps.solution.outputs.path }}" \
             --configuration "$CONFIGURATION" \
             --no-build \
+            --packages "$NUGET_PACKAGES" \
             --logger "trx;LogFilePrefix=release-test-results" \
             --results-directory ./artifacts/test-results
 
@@ -103,9 +116,10 @@ jobs:
           VERSION="${GITHUB_REF_NAME:-manual}"
           PACKAGE_ROOT="$RUNNER_TEMP/OpcUaEmulator-$VERSION"
           mkdir -p "$PACKAGE_ROOT"
-          dotnet publish "$RELEASE_PROJECT" \
+          dotnet publish "${{ steps.release_project.outputs.path }}" \
             --configuration "$CONFIGURATION" \
             --no-build \
+            --packages "$NUGET_PACKAGES" \
             --output "$PACKAGE_ROOT/app" \
             /p:ContinuousIntegrationBuild=true
           if [ -f README.md ]; then cp README.md "$PACKAGE_ROOT/"; fi

@@ -23,6 +23,7 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   CONFIGURATION: Release
   DEFAULT_DOTNET_VERSION: 10.0.x
+  NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
 
 jobs:
   analyze:
@@ -48,37 +49,32 @@ jobs:
         uses: actions/setup-dotnet@v5
         with:
           global-json-file: ./global.json
-          cache: true
-          cache-dependency-path: |
-            **/packages.lock.json
-            **/*.csproj
-            **/*.props
-            **/*.targets
-            global.json
+          cache: false
 
       - name: Setup .NET default SDK
         if: steps.dotnet.outputs.use_global_json != 'true'
         uses: actions/setup-dotnet@v5
         with:
           dotnet-version: ${{ env.DEFAULT_DOTNET_VERSION }}
-          cache: true
-          cache-dependency-path: |
-            **/packages.lock.json
-            **/*.csproj
-            **/*.props
-            **/*.targets
+          cache: false
 
       - name: Find solution file
         id: solution
         shell: bash
         run: |
-          SOLUTION_FILE="$(find . -maxdepth 2 \( -name '*.slnx' -o -name '*.sln' \) | sort | head -n 1)"
+          SOLUTION_FILE="$(find . -maxdepth 4 \( -name '*.slnx' -o -name '*.sln' \) | sort | head -n 1)"
           if [ -z "$SOLUTION_FILE" ]; then
             echo "No solution file (*.slnx or *.sln) found."
             exit 1
           fi
           echo "path=$SOLUTION_FILE" >> "$GITHUB_OUTPUT"
           echo "Using solution: $SOLUTION_FILE"
+
+      - name: Prepare NuGet package folder
+        shell: bash
+        run: |
+          mkdir -p "$NUGET_PACKAGES"
+          dotnet nuget locals all --clear
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
@@ -89,7 +85,11 @@ jobs:
 
       - name: Restore for CodeQL
         shell: bash
-        run: dotnet restore "${{ steps.solution.outputs.path }}"
+        run: |
+          dotnet restore "${{ steps.solution.outputs.path }}" \
+            --packages "$NUGET_PACKAGES" \
+            --force \
+            --no-http-cache
 
       - name: Build for CodeQL
         shell: bash
@@ -97,6 +97,7 @@ jobs:
           dotnet build "${{ steps.solution.outputs.path }}" \
             --configuration "$CONFIGURATION" \
             --no-restore \
+            --packages "$NUGET_PACKAGES" \
             /p:ContinuousIntegrationBuild=true
 
       - name: Perform CodeQL analysis
