@@ -6,7 +6,7 @@ namespace OpcUaEmulator.Integration.Tests
     public sealed class ArchitectureTests
     {
         [Fact]
-        public void Domain_Should_Not_Depend_On_Application()
+        public void DomainShouldNotDependOnApplication()
         {
             var result = Types.InAssembly(typeof(OpcUaEmulator.Domain.AssemblyMarker).Assembly)
                 .ShouldNot()
@@ -17,7 +17,7 @@ namespace OpcUaEmulator.Integration.Tests
         }
 
         [Fact]
-        public void Domain_Should_Not_Depend_On_Api()
+        public void DomainShouldNotDependOnApi()
         {
             var result = Types.InAssembly(typeof(OpcUaEmulator.Domain.AssemblyMarker).Assembly)
                 .ShouldNot()
@@ -28,7 +28,7 @@ namespace OpcUaEmulator.Integration.Tests
         }
 
         [Fact]
-        public void Domain_Should_Not_Depend_On_Infrastructure_Persistence()
+        public void DomainShouldNotDependOnInfrastructurePersistence()
         {
             var result = Types.InAssembly(typeof(OpcUaEmulator.Domain.AssemblyMarker).Assembly)
                 .ShouldNot()
@@ -39,7 +39,7 @@ namespace OpcUaEmulator.Integration.Tests
         }
 
         [Fact]
-        public void Domain_Should_Not_Depend_On_Infrastructure_OpcUa()
+        public void DomainShouldNotDependOnInfrastructureOpcUa()
         {
             var result = Types.InAssembly(typeof(OpcUaEmulator.Domain.AssemblyMarker).Assembly)
                 .ShouldNot()
@@ -50,7 +50,7 @@ namespace OpcUaEmulator.Integration.Tests
         }
 
         [Fact]
-        public void Application_Should_Not_Depend_On_Api()
+        public void ApplicationShouldNotDependOnApi()
         {
             var result = Types.InAssembly(typeof(OpcUaEmulator.Application.AssemblyMarker).Assembly)
                 .ShouldNot()
@@ -61,7 +61,7 @@ namespace OpcUaEmulator.Integration.Tests
         }
 
         [Fact]
-        public void Application_Should_Not_Depend_On_Infrastructure_Persistence()
+        public void ApplicationShouldNotDependOnInfrastructurePersistence()
         {
             var result = Types.InAssembly(typeof(OpcUaEmulator.Application.AssemblyMarker).Assembly)
                 .ShouldNot()
@@ -72,7 +72,7 @@ namespace OpcUaEmulator.Integration.Tests
         }
 
         [Fact]
-        public void Application_Should_Not_Depend_On_Infrastructure_OpcUa()
+        public void ApplicationShouldNotDependOnInfrastructureOpcUa()
         {
             var result = Types.InAssembly(typeof(OpcUaEmulator.Application.AssemblyMarker).Assembly)
                 .ShouldNot()
@@ -83,7 +83,7 @@ namespace OpcUaEmulator.Integration.Tests
         }
 
         [Fact]
-        public void Contracts_Should_Not_Depend_On_Domain()
+        public void ContractsShouldNotDependOnDomain()
         {
             var result = Types.InAssembly(typeof(OpcUaEmulator.Contracts.AssemblyMarker).Assembly)
                 .ShouldNot()
@@ -94,7 +94,7 @@ namespace OpcUaEmulator.Integration.Tests
         }
 
         [Fact]
-        public void Contracts_Should_Not_Depend_On_Application()
+        public void ContractsShouldNotDependOnApplication()
         {
             var result = Types.InAssembly(typeof(OpcUaEmulator.Contracts.AssemblyMarker).Assembly)
                 .ShouldNot()
@@ -105,7 +105,7 @@ namespace OpcUaEmulator.Integration.Tests
         }
 
         [Fact]
-        public void Contracts_Should_Not_Depend_On_Infrastructure()
+        public void ContractsShouldNotDependOnInfrastructure()
         {
             var result = Types.InAssembly(typeof(OpcUaEmulator.Contracts.AssemblyMarker).Assembly)
                 .ShouldNot()
@@ -116,7 +116,7 @@ namespace OpcUaEmulator.Integration.Tests
         }
 
         [Fact]
-        public void Persistence_Should_Not_Depend_On_Api()
+        public void PersistenceShouldNotDependOnApi()
         {
             var result = Types.InAssembly(typeof(OpcUaEmulator.Infrastructure.Persistence.AssemblyMarker).Assembly)
                 .ShouldNot()
@@ -127,7 +127,7 @@ namespace OpcUaEmulator.Integration.Tests
         }
 
         [Fact]
-        public void Persistence_Should_Not_Depend_On_OpcUa_Infrastructure()
+        public void PersistenceShouldNotDependOnOpcUaInfrastructure()
         {
             var result = Types.InAssembly(typeof(OpcUaEmulator.Infrastructure.Persistence.AssemblyMarker).Assembly)
                 .ShouldNot()
@@ -138,7 +138,7 @@ namespace OpcUaEmulator.Integration.Tests
         }
 
         [Fact]
-        public void OpcUa_Infrastructure_Should_Not_Depend_On_Api()
+        public void OpcUaInfrastructureShouldNotDependOnApi()
         {
             var result = Types.InAssembly(typeof(OpcUaEmulator.Infrastructure.OpcUa.AssemblyMarker).Assembly)
                 .ShouldNot()
@@ -149,7 +149,7 @@ namespace OpcUaEmulator.Integration.Tests
         }
 
         [Fact]
-        public void OpcUa_Infrastructure_Should_Not_Depend_On_Persistence()
+        public void OpcUaInfrastructureShouldNotDependOnPersistence()
         {
             var result = Types.InAssembly(typeof(OpcUaEmulator.Infrastructure.OpcUa.AssemblyMarker).Assembly)
                 .ShouldNot()
@@ -160,7 +160,7 @@ namespace OpcUaEmulator.Integration.Tests
         }
 
         [Fact]
-        public void Api_Should_Not_Depend_On_Domain_Directly()
+        public void ApiShouldNotDependOnDomainDirectly()
         {
             var result = Types.InAssembly(typeof(OpcUaEmulator.Api.AssemblyMarker).Assembly)
                 .ShouldNot()
