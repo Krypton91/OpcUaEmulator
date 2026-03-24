@@ -1,0 +1,17 @@
+<Solution>
+  <Folder Name="/Infrastructure/">
+    <Project Path="OpcUaEmulator.Infrastructure.OpcUa/OpcUaEmulator.Infrastructure.OpcUa.csproj" />
+    <Project Path="OpcUaEmulator.Infrastructure.Persistence/OpcUaEmulator.Infrastructure.Persistence.csproj" />
+  </Folder>
+
+  <Folder Name="/Tests/">
+    <Project Path="OpcUaEmulator.Application.Tests/OpcUaEmulator.Application.Tests.csproj" />
+    <Project Path="OpcUaEmulator.Domain.Tests/OpcUaEmulator.Domain.Tests.csproj" />
+    <Project Path="OpcUaEmulator.Integration.Tests/OpcUaEmulator.Integration.Tests.csproj" />
+  </Folder>
+
+  <Project Path="OpcUaEmulator.Api/OpcUaEmulator.Api.csproj" />
+  <Project Path="OpcUaEmulator.Application/OpcUaEmulator.Application.csproj" />
+  <Project Path="OpcUaEmulator.Contracts/OpcUaEmulator.Contracts.csproj" />
+  <Project Path="OpcUaEmulator.Domain/OpcUaEmulator.Domain.csproj" />
+</Solution>

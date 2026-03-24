@@ -1,0 +1,6 @@
+@OpcUaEmulatorServer_HostAddress = http://localhost:5110
+
+GET {{OpcUaEmulatorServer_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
