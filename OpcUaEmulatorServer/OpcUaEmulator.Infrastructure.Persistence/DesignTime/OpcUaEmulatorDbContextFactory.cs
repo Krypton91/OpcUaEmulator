@@ -49,7 +49,7 @@ public sealed class OpcUaEmulatorDbContextFactory
         {
             var candidate = Path.Combine(current.FullName, "OpcUaEmulator.Api");
             if (Directory.Exists(candidate) &&
-                File.Exists(Path.Combine(candidate, "appsettings.json")))
+                File.Exists(Path.Join(candidate, "appsettings.json")))
             {
                 return candidate;
             }
@@ -60,7 +60,7 @@ public sealed class OpcUaEmulatorDbContextFactory
                 "OpcUaEmulator.Api");
 
             if (Directory.Exists(candidateFromInfrastructure) &&
-                File.Exists(Path.Combine(candidateFromInfrastructure, "appsettings.json")))
+                File.Exists(Path.Join(candidateFromInfrastructure, "appsettings.json")))
             {
                 return candidateFromInfrastructure;
             }
